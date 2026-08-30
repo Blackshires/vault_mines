@@ -61,7 +61,7 @@ export default function Home() {
   const [shield, setShield] = useState(false);
   const [safeCount, setSafeCount] = useState(0);
 
-  const [autoPicks, setAutoPicks] = useState(3);
+  const [autoSelections, setAutoSelections] = useState<number[]>([]);
   const [autoRounds, setAutoRounds] = useState(10);
   const [autoPlaying, setAutoPlaying] = useState(false);
   const [roundsDone, setRoundsDone] = useState(0);
@@ -70,11 +70,6 @@ export default function Home() {
   const multiplier = useMemo(() => Math.max(1, 1 + safeCount * (0.11 + mines * 0.018)), [safeCount, mines]);
   const payout = bet * multiplier;
   const depth = safeCount >= 10 ? 4 : safeCount >= 6 ? 3 : safeCount >= 3 ? 2 : 1;
-  const maxAutoPicks = Math.max(1, 25 - mines);
-
-  useEffect(() => {
-    if (autoPicks > maxAutoPicks) setAutoPicks(maxAutoPicks);
-  }, [autoPicks, maxAutoPicks]);
 
   function startGame() {
     setCells(createBoard(mines));
@@ -133,7 +128,18 @@ export default function Home() {
     }
   }
 
+  function toggleAutoSelection(id: number) {
+    if (mode !== 'auto' || autoPlaying || playing) return;
+    playTileClick();
+    setAutoSelections((current) =>
+      current.includes(id)
+        ? current.filter((cellId) => cellId !== id)
+        : [...current, id]
+    );
+  }
+
   function startAuto() {
+    if (autoSelections.length === 0) return;
     setRoundsDone(0);
     setSessionProfit(0);
     setAutoPlaying(true);
@@ -157,21 +163,16 @@ export default function Home() {
       return () => window.clearTimeout(timer);
     }
 
-    if (safeCount >= autoPicks) {
+    const nextSelected = autoSelections.find((id) => !cells[id].revealed);
+
+    if (nextSelected === undefined) {
       const timer = window.setTimeout(() => cashout(true), 450);
       return () => window.clearTimeout(timer);
     }
 
-    const hidden = cells.filter((cell) => !cell.revealed);
-    if (hidden.length === 0) return;
-
-    const timer = window.setTimeout(() => {
-      const target = hidden[Math.floor(Math.random() * hidden.length)];
-      reveal(target.id);
-    }, 420);
-
+    const timer = window.setTimeout(() => reveal(nextSelected), 420);
     return () => window.clearTimeout(timer);
-  }, [autoPlaying, roundsDone, autoRounds, playing, safeCount, autoPicks, cells]);
+  }, [autoPlaying, roundsDone, autoRounds, playing, cells, autoSelections]);
 
   return (
     <main className="shell">
@@ -208,18 +209,10 @@ export default function Home() {
 
           {mode === 'auto' && (
             <div className="auto-settings">
-              <label>
-                <span>Safe picks per round</span>
-                <input
-                  className="standalone-input"
-                  type="number"
-                  min="1"
-                  max={maxAutoPicks}
-                  value={autoPicks}
-                  disabled={autoPlaying}
-                  onChange={(e) => setAutoPicks(Math.max(1, Math.min(maxAutoPicks, Number(e.target.value))))}
-                />
-              </label>
+              <div className="selection-info">
+                <span>Selected tiles</span>
+                <strong>{autoSelections.length}</strong>
+              </div>
               <label>
                 <span>Number of rounds</span>
                 <input
@@ -255,7 +248,7 @@ export default function Home() {
           ) : autoPlaying ? (
             <button className="primary stop" onClick={stopAuto}>Stop auto</button>
           ) : (
-            <button className="primary" onClick={startAuto}>Start auto</button>
+            <button className="primary" onClick={startAuto} disabled={autoSelections.length === 0}>Start auto</button>
           )}
         </aside>
 
@@ -267,28 +260,38 @@ export default function Home() {
           </div>
 
           <div className="grid">
-            {cells.map((cell) => (
-              <button
-                key={cell.id}
-                className={`cell ${cell.revealed ? `revealed ${cell.type}` : ''}`}
-                onClick={() => reveal(cell.id)}
-                disabled={!playing || cell.revealed || autoPlaying}
-                aria-label={`Cell ${cell.id + 1}`}
-              >
-                <span>{cell.revealed ? iconFor(cell.type) : '◆'}</span>
-              </button>
-            ))}
+            {cells.map((cell) => {
+              const selected = mode === 'auto' && autoSelections.includes(cell.id);
+              const canSelect = mode === 'auto' && !playing && !autoPlaying;
+
+              return (
+                <button
+                  key={cell.id}
+                  className={`cell ${selected ? 'auto-selected' : ''} ${cell.revealed ? `revealed ${cell.type}` : ''}`}
+                  onClick={() => canSelect ? toggleAutoSelection(cell.id) : reveal(cell.id)}
+                  disabled={mode === 'manual' ? (!playing || cell.revealed) : (autoPlaying || playing)}
+                  aria-pressed={mode === 'auto' ? selected : undefined}
+                  aria-label={mode === 'auto' && !playing ? `Select cell ${cell.id + 1}` : `Cell ${cell.id + 1}`}
+                >
+                  <span>{cell.revealed ? iconFor(cell.type) : selected ? '✓' : '◆'}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className={`status ${lost ? 'danger' : ''}`}>
             {lost
               ? autoPlaying ? 'MINE HIT — NEXT ROUND...' : 'VAULT BREACHED — MINE HIT'
               : autoPlaying
-                ? `AUTO PLAY — ${Math.min(roundsDone + 1, autoRounds)}/${autoRounds} · CASH OUT AFTER ${autoPicks} SAFE`
+                ? `AUTO PLAY — ${Math.min(roundsDone + 1, autoRounds)}/${autoRounds} · ${autoSelections.length} PRESELECTED TILES`
                 : playing
                   ? 'Choose a tile or cash out.'
-                  : mode === 'auto' && roundsDone > 0
-                    ? `Auto complete — ${roundsDone} rounds · ${sessionProfit >= 0 ? '+' : ''}€${sessionProfit.toFixed(2)}`
+                  : mode === 'auto'
+                    ? roundsDone > 0
+                      ? `Auto complete — ${roundsDone} rounds · ${sessionProfit >= 0 ? '+' : ''}€${sessionProfit.toFixed(2)}`
+                      : autoSelections.length > 0
+                        ? `${autoSelections.length} tiles selected — start auto when ready.`
+                        : 'Select the tiles you want Auto to play every round.'
                     : safeCount > 0
                       ? `Round complete — €${payout.toFixed(2)}`
                       : 'Configure your bet and enter the vault.'}
