@@ -24,6 +24,32 @@ function createBoard(mines: number): Cell[] {
   return cells;
 }
 
+function playTileClick() {
+  if (typeof window === 'undefined') return;
+
+  const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  const context = new AudioContextClass();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const now = context.currentTime;
+
+  oscillator.type = 'triangle';
+  oscillator.frequency.setValueAtTime(210, now);
+  oscillator.frequency.exponentialRampToValueAtTime(125, now + 0.045);
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.055, now + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.06);
+  oscillator.addEventListener('ended', () => void context.close());
+}
+
 export default function Home() {
   const [mode, setMode] = useState<PlayMode>('manual');
   const [bet, setBet] = useState(1);
@@ -68,6 +94,8 @@ export default function Home() {
     if (!playing || lost) return;
     const cell = cells[id];
     if (cell.revealed) return;
+
+    playTileClick();
 
     const next = [...cells];
     const target = { ...next[id], revealed: true };
