@@ -43,7 +43,7 @@ button:disabled { cursor: default; opacity: .55; }
   padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 22px;
   border-right: 1px solid rgba(255,255,255,.07);
   background: linear-gradient(180deg, rgba(18,32,37,.96), rgba(8,20,25,.96));
 }
@@ -68,6 +68,31 @@ h1 {
   line-height: 1.55;
 }
 
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  background: #09161b;
+}
+
+.mode-tabs button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  color: #7f9197;
+  background: transparent;
+  font-weight: 800;
+}
+
+.mode-tabs button.active {
+  color: #f3e5ba;
+  background: rgba(214,180,99,.14);
+  box-shadow: inset 0 0 0 1px rgba(214,180,99,.16);
+}
+
 label { display: grid; gap: 9px; }
 label > span, .stats span, .hud span {
   font-size: 12px;
@@ -84,7 +109,8 @@ label > span, .stats span, .hud span {
 
 .input-row button,
 .input-row input,
-select {
+select,
+.standalone-input {
   min-height: 46px;
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 10px;
@@ -93,8 +119,16 @@ select {
 }
 
 .input-row input,
-select { padding: 0 12px; width: 100%; }
+select,
+.standalone-input { padding: 0 12px; width: 100%; }
 .input-row button:hover:not(:disabled) { background: #14272d; }
+
+.auto-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 2px;
+}
 
 .stats {
   display: grid;
@@ -112,6 +146,7 @@ select { padding: 0 12px; width: 100%; }
 }
 
 .stats strong { color: #d8bf79; }
+.stats strong.negative { color: #e07878; }
 
 .primary {
   width: 100%;
@@ -125,6 +160,11 @@ select { padding: 0 12px; width: 100%; }
 }
 
 .primary:hover:not(:disabled) { filter: brightness(1.08); }
+.primary.stop {
+  color: #f5dada;
+  background: linear-gradient(180deg, #7b3135, #542125);
+  box-shadow: inset 0 1px rgba(255,255,255,.12), 0 8px 24px rgba(112,35,42,.18);
+}
 
 .board-zone {
   display: flex;
@@ -217,4 +257,8 @@ select { padding: 0 12px; width: 100%; }
   }
   .stats { margin-top: 0; }
   .board-zone { padding: 24px 18px 36px; }
+}
+
+@media (max-width: 460px) {
+  .auto-settings { grid-template-columns: 1fr; }
 }
