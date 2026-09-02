@@ -10,7 +10,7 @@ export default function RgsTestPage() {
   const clientRef = useRef<Client | null>(null);
   const [authResult, setAuthResult] = useState<JsonValue>(null);
   const [playResult, setPlayResult] = useState<JsonValue>(null);
-  const [actionResult, setActionResult] = useState<JsonValue>(null);
+  const [eventResult, setEventResult] = useState<JsonValue>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,6 +29,7 @@ export default function RgsTestPage() {
       }
       const response = await clientRef.current.Authenticate();
       setAuthResult(response);
+      console.log('AUTH:', response);
     } catch (err) {
       console.error('AUTH ERROR:', err);
       setError(String(err));
@@ -40,7 +41,7 @@ export default function RgsTestPage() {
   async function handlePlay() {
     setLoading(true);
     setError('');
-    setActionResult(null);
+    setEventResult(null);
 
     try {
       if (!clientRef.current) {
@@ -51,6 +52,7 @@ export default function RgsTestPage() {
         mode: 'base',
       });
       setPlayResult(response);
+      console.log('PLAY:', response);
     } catch (err) {
       console.error('PLAY ERROR:', err);
       setError(String(err));
@@ -59,7 +61,7 @@ export default function RgsTestPage() {
     }
   }
 
-  async function handleDecision() {
+  async function handleEvent() {
     setLoading(true);
     setError('');
 
@@ -72,34 +74,34 @@ export default function RgsTestPage() {
         throw new Error('sessionID ou rgs_url manquant dans URL');
       }
 
-      const response = await fetch(`https://${rgsUrl}/bet/action`, {
+      const response = await fetch(`https://${rgsUrl}/bet/event`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           sessionID,
-          action: 'DECISION',
-          meta: {
-            cell: 7,
-          },
+          event: '1',
         }),
       });
 
       const text = await response.text();
-      console.log('ACTION HTTP STATUS:', response.status);
-      console.log('ACTION RAW:', text);
+      console.log('EVENT HTTP STATUS:', response.status);
+      console.log('EVENT RAW:', text);
 
+      let parsed: JsonValue;
       try {
-        setActionResult(JSON.parse(text));
+        parsed = JSON.parse(text);
       } catch {
-        setActionResult({
-          httpStatus: response.status,
-          raw: text,
-        });
+        parsed = { httpStatus: response.status, raw: text };
       }
+
+      setEventResult({
+        httpStatus: response.status,
+        response: parsed,
+      });
     } catch (err) {
-      console.error('ACTION ERROR:', err);
+      console.error('EVENT ERROR:', err);
       setError(String(err));
     } finally {
       setLoading(false);
@@ -110,21 +112,26 @@ export default function RgsTestPage() {
     <main style={{ maxWidth: 1100, margin: '40px auto', padding: 24, fontFamily: 'monospace' }}>
       <h1>Vault Mines — RGS Test</h1>
       <p>
-        Diagnostic page for Authenticate, Play and the stateful /bet/action DECISION endpoint.
-        Do not EndRound before testing DECISION.
+        Current EngineIO diagnostic: Authenticate, Play, save round progress with /bet/event,
+        then Authenticate again to verify the saved round.event value.
       </p>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
         <button onClick={handleAuthenticate} disabled={loading} style={{ padding: '12px 20px' }}>
-          Authenticate
+          Authenticate / Refresh Round
         </button>
         <button onClick={handlePlay} disabled={loading || !authResult} style={{ padding: '12px 20px' }}>
           Play 1 USD
         </button>
-        <button onClick={handleDecision} disabled={loading || !playResult} style={{ padding: '12px 20px' }}>
-          DECISION cell 7
+        <button onClick={handleEvent} disabled={loading || !playResult} style={{ padding: '12px 20px' }}>
+          Save EVENT 1
         </button>
       </div>
+
+      <p>
+        Test order: Play 1 USD → Save EVENT 1 → Authenticate / Refresh Round.
+        EVENT is a progress marker, not a cell-selection payload.
+      </p>
 
       {loading && <p>Loading...</p>}
       {error && <pre style={{ whiteSpace: 'pre-wrap' }}>ERROR: {error}</pre>}
@@ -139,9 +146,9 @@ export default function RgsTestPage() {
         {JSON.stringify(playResult, null, 2)}
       </pre>
 
-      <h2>ACTION</h2>
+      <h2>EVENT</h2>
       <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-        {JSON.stringify(actionResult, null, 2)}
+        {JSON.stringify(eventResult, null, 2)}
       </pre>
     </main>
   );
