@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RGSClient } from 'stake-engine';
 
 type JsonValue = unknown;
+type Client = ReturnType<typeof RGSClient>;
 
 export default function RgsTestPage() {
+  const clientRef = useRef<Client | null>(null);
   const [authResult, setAuthResult] = useState<JsonValue>(null);
   const [playResult, setPlayResult] = useState<JsonValue>(null);
   const [actionResult, setActionResult] = useState<JsonValue>(null);
@@ -13,6 +15,7 @@ export default function RgsTestPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    clientRef.current = RGSClient({ url: window.location.href });
     void handleAuthenticate();
   }, []);
 
@@ -21,8 +24,10 @@ export default function RgsTestPage() {
     setError('');
 
     try {
-      const client = RGSClient({ url: window.location.href });
-      const response = await client.Authenticate();
+      if (!clientRef.current) {
+        clientRef.current = RGSClient({ url: window.location.href });
+      }
+      const response = await clientRef.current.Authenticate();
       setAuthResult(response);
     } catch (err) {
       console.error('AUTH ERROR:', err);
@@ -38,8 +43,10 @@ export default function RgsTestPage() {
     setActionResult(null);
 
     try {
-      const client = RGSClient({ url: window.location.href });
-      const response = await client.Play({
+      if (!clientRef.current) {
+        throw new Error('RGS client not initialized');
+      }
+      const response = await clientRef.current.Play({
         amount: 1000000,
         mode: 'base',
       });
@@ -111,7 +118,7 @@ export default function RgsTestPage() {
         <button onClick={handleAuthenticate} disabled={loading} style={{ padding: '12px 20px' }}>
           Authenticate
         </button>
-        <button onClick={handlePlay} disabled={loading} style={{ padding: '12px 20px' }}>
+        <button onClick={handlePlay} disabled={loading || !authResult} style={{ padding: '12px 20px' }}>
           Play 1 USD
         </button>
         <button onClick={handleDecision} disabled={loading || !playResult} style={{ padding: '12px 20px' }}>
